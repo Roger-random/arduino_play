@@ -18,26 +18,6 @@ JoyDrive::JoyDrive(int steeringPin, int velocityPin, int buttonPin)
   _buttonPin = buttonPin;
   pinMode(_buttonPin, INPUT);
   digitalWrite(_buttonPin, HIGH);
-
-  // Set default values for other options
-  _deadZone = 25;
-  _steeringInvert = false;
-  _velocityInvert = false;
-}
-
-void JoyDrive::invertSteering(bool invert)
-{
-  _steeringInvert = invert;
-}
-
-void JoyDrive::invertVelocity(bool invert)
-{
-  _velocityInvert = invert;
-}
-
-void JoyDrive::setDeadZone(int deadZone)
-{
-  _deadZone = deadZone;
 }
 
 bool JoyDrive::getButton()
@@ -50,7 +30,7 @@ int JoyDrive::getSteering()
   // analogRead returns between 0 and 1023
   int vRaw = analogRead(_steeringPin);
 
-  return normalized(vRaw, _steeringInvert);
+  return normalized(vRaw, INVERT_STEERING);
 }
 
 int JoyDrive::getVelocity()
@@ -58,24 +38,24 @@ int JoyDrive::getVelocity()
   // analogRead returns between 0 and 1023
   int vRaw = analogRead(_velocityPin);
 
-  return normalized(vRaw, _velocityInvert);
+  return normalized(vRaw, INVERT_VELOCITY);
 }
 
 int JoyDrive::normalized(int raw, bool invert)
 {
-  int range = ANALOG_MID-_deadZone;
+  float range = ANALOG_MID - DEAD_ZONE;
   float sign = 0.0;
   int subset = 0;
   
-  if (raw > ANALOG_MID+_deadZone)
+  if (raw > ANALOG_MID + DEAD_ZONE)
   {
     sign = 100.0;
-    subset = raw - (ANALOG_MID+_deadZone);
+    subset = raw - ANALOG_MID - DEAD_ZONE;
   }
-  else if (raw < range)
+  else if (raw < ANALOG_MID - DEAD_ZONE)
   {
     sign = -100.0;
-    subset = range - raw;
+    subset = ANALOG_MID - DEAD_ZONE - raw;
   }
   else
   {

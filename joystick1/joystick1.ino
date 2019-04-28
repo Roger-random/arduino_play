@@ -9,7 +9,6 @@ JoyDrive jd(STEERING_PIN, VELOCITY_PIN,BUTTON_PIN);
 
 void setup() {
   Serial.begin(9600);
-  jd.setDeadZone(5);
 }
 
 void loop() {
