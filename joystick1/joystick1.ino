@@ -17,9 +17,9 @@ void setup()
 void loop()
 {
   lss.moveTo(30,jd.getSteering());
-  //delay(100);
-  //lss.spinAt(30,jd.getVelocity());
-  delay(500);
+  delay(100);
+  lss.spinAt(31,jd.getVelocity());
+  delay(100);
 }
 
 /* JoyDrive test program
