@@ -361,12 +361,16 @@ void LewanSoul::setup()
 
 void LewanSoul::moveTo(int servoId, int destination)
 {
-  LobotSerialServoMove(Serial, servoId, destination, 0);
+  // Input should be from -100 to 100, so multiply by 5
+  // and add 500 to get 0 to 1000 range of LewanSoul API
+  LobotSerialServoMove(Serial, servoId, (destination * 5) + 500, 0);
 }
 
 void LewanSoul::spinAt(int servoId, int velocity)
 {
-  LobotSerialServoSetMode(Serial, servoId, 1, velocity);
+  // Input should be from -100 to 100, so multiply by 10 to get
+  // the -1000 to 1000 range desired by LewanSoul API
+  LobotSerialServoSetMode(Serial, servoId, 1, velocity * 10);
 }
 
 

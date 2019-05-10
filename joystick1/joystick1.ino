@@ -16,18 +16,10 @@ void setup()
 
 void loop()
 {
-  int steer = 0;
-  int velocity = 0;
-  
-  steer = jd.getSteering(); // Returns value -100 to 100
-  steer = steer*5; // Now from -500 to 500
-  steer = steer+500; // Now from 0 to 1000, the range LewanSoul wants
-  //lss.moveTo(30,steer);
-  delay(100);
-  velocity = jd.getVelocity(); // Returns value -100 to 100
-  velocity = velocity*10; // Now from -1000 to 1000, the range LewanSoul wants.
-  lss.spinAt(30,velocity);
-  delay(250);
+  lss.moveTo(30,jd.getSteering());
+  //delay(100);
+  //lss.spinAt(30,jd.getVelocity());
+  delay(500);
 }
 
 /* JoyDrive test program
