@@ -361,7 +361,12 @@ void LewanSoul::setup()
 
 void LewanSoul::moveTo(int servoId, int destination)
 {
-  LobotSerialServoMove(Serial, servoId, destination, 100);
+  LobotSerialServoMove(Serial, servoId, destination, 0);
+}
+
+void LewanSoul::spinAt(int servoId, int velocity)
+{
+  LobotSerialServoSetMode(Serial, servoId, 1, velocity);
 }
 
 

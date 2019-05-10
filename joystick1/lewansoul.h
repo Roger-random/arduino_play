@@ -12,6 +12,7 @@ class LewanSoul
     void setup();
     
     void moveTo(int id, int destination);
+    void spinAt(int id, int velocity);
 };
 
 #endif // lewansoul_h
