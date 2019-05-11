@@ -23,17 +23,15 @@
 class JoyDrive
 {
   public:
-    JoyDrive(int steeringPin, int velocityPin, int buttonPin);
+    JoyDrive(int steeringPin, int velocityPin);
 
     int getSteering();
     int getVelocity();
-    bool getButton();
 
   private:
     int normalized(int raw, bool invert);
 
     int _steeringPin;
     int _velocityPin;
-    int _buttonPin;
 };
 #endif // joydrive_h

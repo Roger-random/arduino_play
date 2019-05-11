@@ -11,18 +11,10 @@
 
 #include "joydrive.h"
 
-JoyDrive::JoyDrive(int steeringPin, int velocityPin, int buttonPin)
+JoyDrive::JoyDrive(int steeringPin, int velocityPin)
 {
   _steeringPin = steeringPin;
   _velocityPin = velocityPin;
-  _buttonPin = buttonPin;
-  pinMode(_buttonPin, INPUT);
-  digitalWrite(_buttonPin, HIGH);
-}
-
-bool JoyDrive::getButton()
-{
-  return (digitalRead(_buttonPin) == HIGH);
 }
 
 int JoyDrive::getSteering()
