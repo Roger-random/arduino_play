@@ -9,6 +9,73 @@
 JoyDrive jd(STEERING_PIN, VELOCITY_PIN,BUTTON_PIN);
 LewanSoul lss(1);
 
+typedef struct RoverWheel
+{
+  float x;
+  float y;
+  int rollServoId;
+  bool rollServoInverted;
+  int steerServoId;
+  float steerCenter;
+} RoverWheel;
+
+const RoverWheel Chassis[] = {
+  // front left
+  {
+    -9.125, // x
+    11.375, // y
+    25,     // roll ID
+    false,  // roll inverted
+    23,     // steer ID
+    -4      // steer center
+  },
+  // front right
+  {
+     9.125, // x
+    11.375, // y
+    27,     // roll ID
+    true,   // roll inverted
+    29,     // steer ID
+    -4      // steer center
+  },
+  // mid left
+  {
+    -10.375,// x
+    0,      // y
+    21,     // roll ID
+    false,  // roll inverted
+    -1,     // steer ID
+    0       // steer center
+  },
+  // mid right
+  {
+    10.375, // x
+    0,      // y
+    22,     // roll ID
+    true,   // roll inverted
+    -1,     // steer ID
+    0       // steer center
+  },
+  // rear left
+  {
+    -9,     // x
+    -10,    // y
+    20,     // roll ID
+    false,  // roll inverted
+    24,     // steer ID
+    0       // steer center
+  },
+  // rear right
+  {
+     9,     // x
+    -10,    // y
+    28,     // roll ID
+    true,   // roll inverted
+    26,     // steer ID
+    2       // steer center
+  }
+};
+
 void setup()
 {
   lss.setup();
@@ -16,10 +83,29 @@ void setup()
 
 void loop()
 {
-  lss.moveTo(30,jd.getSteering());
+  int steering;
+  int velocity;
+  int wheel;
+  int invert;
+
   delay(100);
-  lss.spinAt(31,jd.getVelocity());
+  steering = jd.getSteering();
   delay(100);
+  velocity = jd.getVelocity();
+
+  for (wheel = 0; wheel < 6; wheel++)
+  {
+    if (Chassis[wheel].rollServoInverted)
+    {
+      invert = -1;
+    }
+    else
+    {
+      invert = 1;
+    }
+    lss.spinAt(Chassis[wheel].rollServoId, velocity * invert);
+    lss.moveTo(Chassis[wheel].steerServoId, Chassis[wheel].steerCenter);
+  }
 }
 
 /* JoyDrive test program

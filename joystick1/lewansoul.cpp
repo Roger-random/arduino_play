@@ -359,14 +359,14 @@ void LewanSoul::setup()
   Serial.begin(115200);
 }
 
-void LewanSoul::moveTo(int servoId, int destination)
+void LewanSoul::moveTo(int servoId, float destination)
 {
   // Input should be from -100 to 100, so multiply by 5
   // and add 500 to get 0 to 1000 range of LewanSoul API
   LobotSerialServoMove(Serial, servoId, (destination * 5) + 500, 0);
 }
 
-void LewanSoul::spinAt(int servoId, int velocity)
+void LewanSoul::spinAt(int servoId, float velocity)
 {
   // Input should be from -100 to 100, so multiply by 10 to get
   // the -1000 to 1000 range desired by LewanSoul API
