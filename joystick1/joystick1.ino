@@ -1,3 +1,4 @@
+#include <math.h>
 #include "Arduino.h"
 #include "joydrive.h"
 #include "lewansoul.h"
@@ -76,9 +77,34 @@ const RoverWheel Chassis[] = {
   }
 };
 
+// Index into Chassis[] used for calculating steering angles
+#define FRONT_LEFT 0
+#define FRONT_RIGHT 1
+#define MID_LEFT 2
+
+// Using information above, the maximum steering angle for a front wheel
+float maxSteering;
+
+// Store calculation of servo angle and speed before we send them as commands
+typedef struct ServoCommand {
+  float angle;
+  float speed;
+} ServoCommand;
+
+ServoCommand servoCommands[6];
+
 void setup()
 {
+  float opposite;
+  float adjacent;
+
+  // LewanSoul serial servo code is taking over Serial port.
   lss.setup();
+
+  // Calculate maximum steering angle
+  adjacent = Chassis[MID_LEFT].x - Chassis[FRONT_LEFT].x;
+  opposite = Chassis[FRONT_LEFT].y;
+  maxSteering = abs(atan(opposite/adjacent)*180/M_PI);
 }
 
 void loop()
@@ -86,6 +112,9 @@ void loop()
   int steering;
   int velocity;
   int wheel;
+  float calcSteer;
+  float turnRadius;
+
   int invert;
 
   delay(100);
@@ -93,8 +122,50 @@ void loop()
   delay(100);
   velocity = jd.getVelocity();
 
+  if (steering > 0)
+  {
+    // Front right wheel is our reference
+    servoCommands[FRONT_RIGHT].angle = maxSteering * steering / 100.0;
+  }
+  else if (steering < 0)
+  {
+    // Front left wheel is our reference
+    servoCommands[FRONT_LEFT].angle = maxSteering * steering / 100.0;
+  }
+  else
+  {
+    turnRadius = 0;
+  }
+
   for (wheel = 0; wheel < 6; wheel++)
   {
+    if (Chassis[wheel].steerServoId != -1)
+    {
+      if (steering > 0 && wheel != FRONT_RIGHT)
+      {
+        servoCommands[wheel].angle = 0;
+      }
+      else if (steering < 0 && wheel != FRONT_LEFT)
+      {
+        servoCommands[wheel].angle = 0;
+      }
+      else if (steering == 0)
+      {
+        servoCommands[wheel].angle = 0;
+      }
+    }
+    servoCommands[wheel].speed = velocity;
+  }
+
+  // All angles and speeds calculated, send the commands accounting
+  // for steering trim offset and inverting speed where needed
+  for (wheel = 0; wheel < 6; wheel++)
+  {
+    if (Chassis[wheel].steerServoId != -1)
+    {
+      lss.moveTo(Chassis[wheel].steerServoId, servoCommands[wheel].angle + Chassis[wheel].steerTrim);
+    }
+
     if (Chassis[wheel].rollServoInverted)
     {
       invert = -1;
@@ -103,11 +174,7 @@ void loop()
     {
       invert = 1;
     }
-    lss.spinAt(Chassis[wheel].rollServoId, velocity * invert);
-    if (Chassis[wheel].steerServoId > 1)
-    {
-      lss.moveTo(Chassis[wheel].steerServoId, Chassis[wheel].steerTrim);
-    }
+    lss.spinAt(Chassis[wheel].rollServoId, servoCommands[wheel].speed * invert);
   }
 }
 
