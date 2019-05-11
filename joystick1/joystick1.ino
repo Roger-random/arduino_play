@@ -63,7 +63,7 @@ const RoverWheel Chassis[] = {
     20,     // roll ID
     false,  // roll inverted
     24,     // steer ID
-    0       // steer trim
+    2       // steer trim
   },
   // rear right
   {
@@ -72,7 +72,7 @@ const RoverWheel Chassis[] = {
     28,     // roll ID
     true,   // roll inverted
     26,     // steer ID
-    2       // steer trim
+    4       // steer trim
   }
 };
 
