@@ -126,7 +126,8 @@ void loop()
   int velocity;
   int wheel;
   float calcSteer;
-  float turnRadius;
+  float turnCenterX;
+  float inRadians;
 
   int invert;
 
@@ -139,16 +140,24 @@ void loop()
   {
     // Front right wheel is our reference
     servoCommands[FRONT_RIGHT].angle = maxSteering * steering / 100.0;
+
+    inRadians = servoCommands[FRONT_RIGHT].angle * M_PI / 180.0;
+    turnCenterX = Chassis[FRONT_RIGHT].x + (Chassis[FRONT_RIGHT].y / tan(inRadians));
   }
   else if (steering < 0)
   {
     // Front left wheel is our reference
     servoCommands[FRONT_LEFT].angle = maxSteering * steering / 100.0;
+
+    inRadians = servoCommands[FRONT_LEFT].angle * M_PI / 180.0;
+    turnCenterX = Chassis[FRONT_LEFT].x + (Chassis[FRONT_LEFT].y / tan(inRadians));
   }
   else
   {
-    turnRadius = 0;
+    turnCenterX = 0;
   }
+  Serial.print(turnCenterX);
+  Serial.print(" ");
 
   for (wheel = 0; wheel < 6; wheel++)
   {
