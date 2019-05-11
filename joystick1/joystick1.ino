@@ -136,26 +136,34 @@ void loop()
   delay(100);
   velocity = jd.getVelocity();
 
-  if (steering > 0)
-  {
-    // Front right wheel is our reference
-    servoCommands[FRONT_RIGHT].angle = maxSteering * steering / 100.0;
-
-    inRadians = servoCommands[FRONT_RIGHT].angle * M_PI / 180.0;
-    turnCenterX = Chassis[FRONT_RIGHT].x + (Chassis[FRONT_RIGHT].y / tan(inRadians));
-  }
-  else if (steering < 0)
-  {
-    // Front left wheel is our reference
-    servoCommands[FRONT_LEFT].angle = maxSteering * steering / 100.0;
-
-    inRadians = servoCommands[FRONT_LEFT].angle * M_PI / 180.0;
-    turnCenterX = Chassis[FRONT_LEFT].x + (Chassis[FRONT_LEFT].y / tan(inRadians));
-  }
-  else
+  if (steering == 0)
   {
     turnCenterX = 0;
   }
+  else
+  {
+    int referenceWheel = 0;
+    if (steering > 0)
+    {
+      referenceWheel = FRONT_RIGHT;
+    }
+    else
+    {
+      referenceWheel = FRONT_LEFT;
+    }
+
+    servoCommands[referenceWheel].angle = maxSteering * steering / 100.0;
+
+    inRadians = servoCommands[referenceWheel].angle * M_PI / 180.0;
+    turnCenterX = Chassis[referenceWheel].x + (Chassis[referenceWheel].y / tan(inRadians));
+
+    // Store length of hypotenuse for later speed calculation
+    servoCommands[referenceWheel].speed = abs(Chassis[referenceWheel].y / sin(inRadians));
+
+    Serial.print(servoCommands[referenceWheel].speed);
+    Serial.print(" ");
+  }
+
   Serial.print(turnCenterX);
   Serial.print(" ");
 
