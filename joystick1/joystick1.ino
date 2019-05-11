@@ -1,33 +1,49 @@
+/*
+ * Arduino sketch to drive a Sawppy rover using a joystick (two potentiometers)
+ * wired to analog pins. After calculations based on rover geometry, resulting
+ * angle and velocity information can be sent to different types of outputs.
+ *
+ * http://sawppy.com
+ *
+ * LewanSoul serial bus servo control code (in lewansoul.cpp) subject to LewanSoul terms and conditions.
+ *
+ * Remaining code created by Roger Cheng are released under MIT license.
+ */
+
 #include <math.h>
 #include "Arduino.h"
 #include "joydrive.h"
 #include "lewansoul.h"
 
 // Output select - only one of the following should be uncommented
-#define LEWANSOUL 1
-//#define PRINTCMD 1
+#define LEWANSOUL 1 // Output to LewanSoul serial bus servo commands
+//#define PRINTCMD 1 // Output to serial debug monitor
 // Output select end
 
-#define STEERING_PIN 1
-#define VELOCITY_PIN 0
+#define STEERING_PIN 1 // Analog pin to control steering angle
+#define VELOCITY_PIN 0 // Analog pin to control speed
 #define INPLACE_BUTTON 2 // Button to trigger turn-in-place mode.
 
+// Initialize joystick module
 JoyDrive jd(STEERING_PIN, VELOCITY_PIN);
 
 #ifdef LEWANSOUL
-LewanSoul lss(1);
+LewanSoul lss(false);
 #endif
 
+// Hold information about wheel arrangement on rover. This information
+// is fixed and does not change while the program runs.
 typedef struct RoverWheel
 {
-  float x;
-  float y;
-  int rollServoId;
-  bool rollServoInverted;
-  int steerServoId;
-  float steerTrim;
+  float x; // How far this wheel is to the right (positive) or left (negative) of center
+  float y; // How far this wheel is to the ahead (positive) or behind (negative) center
+  int rollServoId; // Serial bus ID of servo responsible for wheel rolling
+  bool rollServoInverted; // Whether to invert wheel rolling front/back direction
+  int steerServoId; // Serial bus ID of servo responsible for wheel steering
+  float steerTrim; // Adjustment in angle degrees to trim steering center position
 } RoverWheel;
 
+// Array of wheels on rover
 const RoverWheel Chassis[] = {
   // front left
   {
@@ -95,6 +111,7 @@ float maxSteering;
 
 // Store calculation of servo angle and speed before we send them as commands
 // Also stores turning radius (hypotenuse in trig calculations) which affects speed.
+// This information is updated on every loop.
 typedef struct ServoCommand {
   float angle;
   float radius;
@@ -110,6 +127,7 @@ void speedFromRadius(float maxSpeed)
   int wheel; // iterator for wheels on a chassis
   float maxRadius = 0.0; // Turning radius of wheel furthest from turn center
 
+  // Find maximum radius of all wheels
   for (wheel = 0; wheel < 6; wheel++)
   {
     if (abs(servoCommands[wheel].radius) > maxRadius)
@@ -117,6 +135,7 @@ void speedFromRadius(float maxSpeed)
       maxRadius = abs(servoCommands[wheel].radius);
     }
   }
+
   // Max radius found, now scale all wheel speeds so those with max radius spins
   // at commanded velocity and other wheels at slower speed based on radius ratio.
   for (wheel = 0; wheel < 6; wheel++)
@@ -125,11 +144,9 @@ void speedFromRadius(float maxSpeed)
   }
 }
 
+// Runs once upon powerup
 void setup()
 {
-  float opposite;
-  float adjacent;
-
   // Configure button pins
   pinMode(INPLACE_BUTTON, INPUT);
   digitalWrite(INPLACE_BUTTON, HIGH); // Button pulls LOW when pressed
@@ -145,30 +162,32 @@ void setup()
 #endif
 
   // Calculate maximum steering angle
-  adjacent = Chassis[MID_LEFT].x - Chassis[FRONT_LEFT].x;
-  opposite = Chassis[FRONT_LEFT].y;
+  float adjacent = Chassis[MID_LEFT].x - Chassis[FRONT_LEFT].x;
+  float opposite = Chassis[FRONT_LEFT].y;
   maxSteering = abs(atan(opposite/adjacent)*180.0/M_PI);
 }
 
+// Runs regularly as long as there is power to Arduino
 void loop()
 {
-  int steering;
-  int velocity;
-  int wheel;
-  float turnCenterX;
-  float inRadians;
+  int steering; // -100 to 100, retrieved by JoyDrive::getSteering()
+  int velocity; // -100 to 100, retrieved by JoyDrive::getVelocity()
+  int wheel; // Iterator index
+  float turnCenterX; // Position of center of turn, which lies on the X axis
+  float inRadians; // Angle calculation in radians
 
-  int invert;
-  int referenceWheel;
+  int invert; // Multiplier for implementing RoverWheel.rollServoInverted
+  int referenceWheel; // Wheel used to calculate turnCenterX
 
-  bool turnInPlace = (digitalRead(INPLACE_BUTTON) == LOW);
+  bool turnInPlace = (digitalRead(INPLACE_BUTTON) == LOW); // Read button that commands turn-in-place mode.
   delay(100);
-  steering = jd.getSteering();
+  steering = jd.getSteering(); // Read steering potentiometer
   delay(100);
-  velocity = jd.getVelocity();
+  velocity = jd.getVelocity(); // Read velocity potentiometer
 
   if (turnInPlace)
   {
+    // Turn in place mode: point all wheels at center so we can rotate about center.
     for (wheel = 0; wheel < 6; wheel++)
     {
       // Calculate angles to point at center
@@ -191,6 +210,7 @@ void loop()
       }
     }
 
+    // Calculate speed from relative radii
     speedFromRadius(steering);
   }
   else
@@ -198,6 +218,7 @@ void loop()
     // Choose a reference wheel and, from there, calculate turn center X
     if (steering == 0)
     {
+      // Rolling straight ahead or behind
       referenceWheel = -1;
       turnCenterX = 0;
     }
@@ -212,8 +233,10 @@ void loop()
         referenceWheel = FRONT_LEFT;
       }
 
+      // Rover motion is based on joystick commanding angle of reference wheel
       servoCommands[referenceWheel].angle = maxSteering * steering / 100.0;
 
+      // From there, calculate the center of rotation we'll use to calculate remaining wheels
       inRadians = servoCommands[referenceWheel].angle * M_PI / 180.0;
       turnCenterX = Chassis[referenceWheel].x + (Chassis[referenceWheel].y / tan(inRadians));
 
@@ -226,6 +249,7 @@ void loop()
     {
       if (turnCenterX == 0)
       {
+        // Rolling straight ahead or behind
         servoCommands[wheel].angle = 0;
         servoCommands[wheel].speed = velocity;
       }
@@ -236,7 +260,7 @@ void loop()
 
         if (Chassis[wheel].steerServoId != -1)
         {
-          // Calculate wheel angle, atan returns radians.
+          // Calculate wheel angle
           inRadians = atan(Chassis[wheel].y/wheelToCenter);
 
           // Convert to degrees and store command
@@ -261,6 +285,7 @@ void loop()
 
     if (abs(turnCenterX) > 0)
     {
+      // Calculate speed from relative radii
       speedFromRadius(velocity);
     }
   }
@@ -314,20 +339,3 @@ void loop()
 #endif
 
 }
-
-/* JoyDrive test program
- 
-void setup() {
-  Serial.begin(9600);
-}
-
-void loop() {
-  Serial.print("Joystick velocity=");
-  Serial.print(jd.getVelocity());
-  Serial.print(" steering=");
-  Serial.print(jd.getSteering());
-  Serial.print(" button=");
-  Serial.println(jd.getButton());
-}
-
-*/

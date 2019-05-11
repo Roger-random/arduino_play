@@ -7,7 +7,7 @@
 class LewanSoul
 {
   public:
-    LewanSoul(int discard);
+    LewanSoul(bool debug);
     
     void setup();
 
@@ -16,6 +16,9 @@ class LewanSoul
 
     // ID of desired servo to spin, and velocity from -100 to 100 percent
     void spinAt(int id, float velocity);
+
+  private:
+    bool _debug;
 };
 
 #endif // lewansoul_h
