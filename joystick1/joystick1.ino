@@ -10,9 +10,9 @@
 
 #define STEERING_PIN 1
 #define VELOCITY_PIN 0
-#define BUTTON_PIN 2
+#define INPLACE_BUTTON 2 // Button to trigger turn-in-place mode.
 
-JoyDrive jd(STEERING_PIN, VELOCITY_PIN,BUTTON_PIN);
+JoyDrive jd(STEERING_PIN, VELOCITY_PIN);
 
 #ifdef LEWANSOUL
 LewanSoul lss(1);
@@ -103,10 +103,36 @@ typedef struct ServoCommand {
 
 ServoCommand servoCommands[6];
 
+// Use the servoCommands[].radius values to scale all servoCommands[].speed relative
+// to a given velocity.
+void speedFromRadius(float maxSpeed)
+{
+  int wheel; // iterator for wheels on a chassis
+  float maxRadius = 0.0; // Turning radius of wheel furthest from turn center
+
+  for (wheel = 0; wheel < 6; wheel++)
+  {
+    if (abs(servoCommands[wheel].radius) > maxRadius)
+    {
+      maxRadius = abs(servoCommands[wheel].radius);
+    }
+  }
+  // Max radius found, now scale all wheel speeds so those with max radius spins
+  // at commanded velocity and other wheels at slower speed based on radius ratio.
+  for (wheel = 0; wheel < 6; wheel++)
+  {
+    servoCommands[wheel].speed = (servoCommands[wheel].radius/maxRadius)*maxSpeed;
+  }
+}
+
 void setup()
 {
   float opposite;
   float adjacent;
+
+  // Configure button pins
+  pinMode(INPLACE_BUTTON, INPUT);
+  digitalWrite(INPLACE_BUTTON, HIGH); // Button pulls LOW when pressed
 
 #ifdef LEWANSOUL
   // LewanSoul serial servo code is taking over Serial port.
@@ -135,94 +161,107 @@ void loop()
   int invert;
   int referenceWheel;
 
-  // Turning radius of wheel furthest from turn center
-  float maxRadius;
-
+  bool turnInPlace = (digitalRead(INPLACE_BUTTON) == LOW);
   delay(100);
   steering = jd.getSteering();
   delay(100);
   velocity = jd.getVelocity();
 
-  // Choose a reference wheel and, from there, calculate turn center X
-  if (steering == 0)
+  if (turnInPlace)
   {
-    referenceWheel = -1;
-    turnCenterX = 0;
-  }
-  else
-  {
-    if (steering > 0)
+    for (wheel = 0; wheel < 6; wheel++)
     {
-      referenceWheel = FRONT_RIGHT;
-    }
-    else
-    {
-      referenceWheel = FRONT_LEFT;
-    }
-
-    servoCommands[referenceWheel].angle = maxSteering * steering / 100.0;
-
-    inRadians = servoCommands[referenceWheel].angle * M_PI / 180.0;
-    turnCenterX = Chassis[referenceWheel].x + (Chassis[referenceWheel].y / tan(inRadians));
-
-    // Store length of hypotenuse for later speed calculation
-    servoCommands[referenceWheel].radius = abs(Chassis[referenceWheel].y / sin(inRadians));
-  }
-
-  // Calculate other wheel angles based on turn center X
-  for (wheel = 0; wheel < 6; wheel++)
-  {
-    if (turnCenterX == 0)
-    {
-      servoCommands[wheel].angle = 0;
-      servoCommands[wheel].speed = velocity;
-    }
-    else if (wheel != referenceWheel)
-    {
-      // The X-axis distance between this wheel and turn center
-      float wheelToCenter = turnCenterX - Chassis[wheel].x;
-
-      if (Chassis[wheel].steerServoId != -1)
+      // Calculate angles to point at center
+      if (Chassis[wheel].y == 0)
       {
-        // Calculate wheel angle, atan returns radians.
-        inRadians = atan(Chassis[wheel].y/wheelToCenter);
-
-        // Convert to degrees and store command
-        servoCommands[wheel].angle = inRadians*180.0/M_PI;
-
-        // Store hypotenuse (turning radius) in speed for later calculation.
-        servoCommands[wheel].radius = abs(Chassis[wheel].y/sin(inRadians));
+        servoCommands[wheel].angle = 0;
+        servoCommands[wheel].radius = abs(Chassis[wheel].x);
       }
       else
       {
-        // No steering servo, but good to blank out data anyway.
-        servoCommands[wheel].angle = 0;
-
-        // This wheel lacks steering servo. This should only happen on the wheels
-        // aligned with turn axis. (wheel coordinate y of zero.) So their turning
-        // radius ("hypotenuse" in all the other trig calculations) becomes their
-        // X relative to turn center.
-        servoCommands[wheel].radius = abs(wheelToCenter);
+        servoCommands[wheel].angle = -atan(Chassis[wheel].y/Chassis[wheel].x)*180.0/M_PI;
+        servoCommands[wheel].radius = sqrt(pow(Chassis[wheel].x,2)+pow(Chassis[wheel].y,2));
       }
-    }
-  }
 
-  if (abs(turnCenterX) > 0)
-  {
-    // Calculate wheel velocity from hypotenuse (radius) ratios
-    maxRadius = 0.0;
-    for (wheel = 0; wheel < 6; wheel++)
-    {
-      if (servoCommands[wheel].radius > maxRadius)
+      // When turning in place, one side wheels turn opposite the other. Change direction of
+      // this inequality comparison to reverse turn-in-place direction relative to joystick.
+      if (Chassis[wheel].x > 0)
       {
-        maxRadius = servoCommands[wheel].radius;
+        servoCommands[wheel].radius *= -1;
       }
     }
-    // Max radius found, now scale all wheel speeds so those with max radius spins
-    // at commanded velocity and other wheels at slower speed based on radius ratio.
+
+    speedFromRadius(steering);
+  }
+  else
+  {
+    // Choose a reference wheel and, from there, calculate turn center X
+    if (steering == 0)
+    {
+      referenceWheel = -1;
+      turnCenterX = 0;
+    }
+    else
+    {
+      if (steering > 0)
+      {
+        referenceWheel = FRONT_RIGHT;
+      }
+      else
+      {
+        referenceWheel = FRONT_LEFT;
+      }
+
+      servoCommands[referenceWheel].angle = maxSteering * steering / 100.0;
+
+      inRadians = servoCommands[referenceWheel].angle * M_PI / 180.0;
+      turnCenterX = Chassis[referenceWheel].x + (Chassis[referenceWheel].y / tan(inRadians));
+
+      // Store length of hypotenuse for later speed calculation
+      servoCommands[referenceWheel].radius = abs(Chassis[referenceWheel].y / sin(inRadians));
+    }
+
+    // Calculate other wheel angles based on turn center X
     for (wheel = 0; wheel < 6; wheel++)
     {
-      servoCommands[wheel].speed = (servoCommands[wheel].radius/maxRadius)*velocity;
+      if (turnCenterX == 0)
+      {
+        servoCommands[wheel].angle = 0;
+        servoCommands[wheel].speed = velocity;
+      }
+      else if (wheel != referenceWheel)
+      {
+        // The X-axis distance between this wheel and turn center
+        float wheelToCenter = turnCenterX - Chassis[wheel].x;
+
+        if (Chassis[wheel].steerServoId != -1)
+        {
+          // Calculate wheel angle, atan returns radians.
+          inRadians = atan(Chassis[wheel].y/wheelToCenter);
+
+          // Convert to degrees and store command
+          servoCommands[wheel].angle = inRadians*180.0/M_PI;
+
+          // Store hypotenuse (turning radius) in speed for later calculation.
+          servoCommands[wheel].radius = abs(Chassis[wheel].y/sin(inRadians));
+        }
+        else
+        {
+          // No steering servo, but good to blank out data anyway.
+          servoCommands[wheel].angle = 0;
+
+          // This wheel lacks steering servo. This should only happen on the wheels
+          // aligned with turn axis. (wheel coordinate y of zero.) So their turning
+          // radius ("hypotenuse" in all the other trig calculations) becomes their
+          // X relative to turn center.
+          servoCommands[wheel].radius = abs(wheelToCenter);
+        }
+      }
+    }
+
+    if (abs(turnCenterX) > 0)
+    {
+      speedFromRadius(velocity);
     }
   }
   
