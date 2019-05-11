@@ -16,7 +16,7 @@ typedef struct RoverWheel
   int rollServoId;
   bool rollServoInverted;
   int steerServoId;
-  float steerCenter;
+  float steerTrim;
 } RoverWheel;
 
 const RoverWheel Chassis[] = {
@@ -27,7 +27,7 @@ const RoverWheel Chassis[] = {
     25,     // roll ID
     false,  // roll inverted
     23,     // steer ID
-    -4      // steer center
+    -4      // steer trim
   },
   // front right
   {
@@ -36,7 +36,7 @@ const RoverWheel Chassis[] = {
     27,     // roll ID
     true,   // roll inverted
     29,     // steer ID
-    -4      // steer center
+    -4      // steer trim
   },
   // mid left
   {
@@ -45,7 +45,7 @@ const RoverWheel Chassis[] = {
     21,     // roll ID
     false,  // roll inverted
     -1,     // steer ID
-    0       // steer center
+    0       // steer trim
   },
   // mid right
   {
@@ -54,7 +54,7 @@ const RoverWheel Chassis[] = {
     22,     // roll ID
     true,   // roll inverted
     -1,     // steer ID
-    0       // steer center
+    0       // steer trim
   },
   // rear left
   {
@@ -63,7 +63,7 @@ const RoverWheel Chassis[] = {
     20,     // roll ID
     false,  // roll inverted
     24,     // steer ID
-    0       // steer center
+    0       // steer trim
   },
   // rear right
   {
@@ -72,7 +72,7 @@ const RoverWheel Chassis[] = {
     28,     // roll ID
     true,   // roll inverted
     26,     // steer ID
-    2       // steer center
+    2       // steer trim
   }
 };
 
@@ -104,7 +104,10 @@ void loop()
       invert = 1;
     }
     lss.spinAt(Chassis[wheel].rollServoId, velocity * invert);
-    lss.moveTo(Chassis[wheel].steerServoId, Chassis[wheel].steerCenter);
+    if (Chassis[wheel].steerServoId > 1)
+    {
+      lss.moveTo(Chassis[wheel].steerServoId, Chassis[wheel].steerTrim);
+    }
   }
 }
 
