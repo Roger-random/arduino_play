@@ -3,12 +3,18 @@
 #include "joydrive.h"
 #include "lewansoul.h"
 
+//#define LEWANSOUL 1
+#define PRINTCMD 1
+
 #define STEERING_PIN 1
 #define VELOCITY_PIN 0
 #define BUTTON_PIN 2
 
 JoyDrive jd(STEERING_PIN, VELOCITY_PIN,BUTTON_PIN);
+
+#ifdef LEWANSOUL
 LewanSoul lss(1);
+#endif
 
 typedef struct RoverWheel
 {
@@ -98,8 +104,15 @@ void setup()
   float opposite;
   float adjacent;
 
+#ifdef LEWANSOUL
   // LewanSoul serial servo code is taking over Serial port.
   lss.setup();
+#endif
+
+#ifdef PRINTCMD
+  // Use serial port to print our calculated commands
+  Serial.begin(9600);
+#endif
 
   // Calculate maximum steering angle
   adjacent = Chassis[MID_LEFT].x - Chassis[FRONT_LEFT].x;
@@ -157,6 +170,7 @@ void loop()
     servoCommands[wheel].speed = velocity;
   }
 
+#ifdef LEWANSOUL
   // All angles and speeds calculated, send the commands accounting
   // for steering trim offset and inverting speed where needed
   for (wheel = 0; wheel < 6; wheel++)
@@ -176,6 +190,34 @@ void loop()
     }
     lss.spinAt(Chassis[wheel].rollServoId, servoCommands[wheel].speed * invert);
   }
+#endif
+
+#ifdef PRINTCMD
+  for (wheel = 0; wheel < 6; wheel++)
+  {
+    Serial.print(" W");
+    Serial.print(wheel);
+    Serial.print(" ");
+    if (Chassis[wheel].steerServoId != -1)
+    {
+      Serial.print(servoCommands[wheel].angle + Chassis[wheel].steerTrim);
+      Serial.print("deg ");
+    }
+
+    if (Chassis[wheel].rollServoInverted)
+    {
+      invert = -1;
+    }
+    else
+    {
+      invert = 1;
+    }
+    Serial.print(servoCommands[wheel].speed * invert);
+    Serial.print("pct ");
+  }
+  Serial.println();
+#endif
+
 }
 
 /* JoyDrive test program
